@@ -104,6 +104,24 @@ function Builder({ host }) {
       openEntry ? h(ui.Button, { onClick: () => { setOpenEntry(null); setSeed(null); } }, 'Back to the model') : mode ? h(ui.Button, { onClick: () => { setMode(null); setSeed(null); } }, openModel ? 'Back to the entries' : 'Back to the models') : openModel ? h(ui.Button, { onClick: () => setOpenModel(null) }, 'Back to the models') : h(ui.Button, { onClick: () => { health.reload(true); insights.reload(); loadSpaces(); } }, 'Refresh')));
 
   const openTheEntry = (model, id) => { setTab('content'); setOpenModel(model); setOpenAsset(null); setOpenEntry({ model, id }); };
+
+  // ---------------------------------------------------------------- opened AT something
+  // "@builder pricing" in the palette, an entry a CLI resolved, a search hit: the app opens
+  // this surface with a target and says so again whenever it changes while the screen is up.
+  // { model, id, space? } lands on that entry; { model } on that model; { query } on the content list.
+  const landOn = useCallback((target) => {
+    if (!target) return;
+    if (target.space) setSpace(String(target.space));
+    if (target.model && target.id) { openTheEntry(String(target.model), String(target.id)); return; }
+    if (target.model) { leave(); setTab('content'); setOpenModel(String(target.model)); return; }
+    if (target.query) { leave(); setTab('content'); setQ(String(target.query)); }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    if (!host.target || !host.onTarget) return;
+    landOn(host.target());
+    return host.onTarget(landOn);
+  }, [host, landOn]);
   // The stage is a column: header on top, the screen below taking the rest, so a screen that
   // wants the full height (an entry) gets exactly the space left and never a page scrollbar.
   const main = h('div', { style: { padding: '12px 16px 24px', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' } },
