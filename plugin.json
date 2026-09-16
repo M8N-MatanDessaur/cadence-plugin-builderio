@@ -432,7 +432,26 @@
           }
         ]
       }
-    ]
+    ],
+    "handle": {
+      "name": "builder",
+      "aliases": [
+        "builderio",
+        "bio"
+      ],
+      "description": "Builder.io: an entry by name, title, url or id across every model in the active space",
+      "placeholder": "words, a url, or an entry id",
+      "search": {
+        "route": "/search",
+        "minChars": 2
+      },
+      "fallback": {
+        "surface": "builder",
+        "target": {
+          "query": "{text}"
+        }
+      }
+    }
   },
   "sdkVersion": 3
 }

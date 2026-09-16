@@ -469,7 +469,7 @@ async function __attentionHandler(req, res, url, compute, json) {
   return json(res, out);
 }
 
-module.exports = function ({ addRoute, addPrefixRoute, json, readBody }) {
+module.exports = function ({ addRoute, addPrefixRoute, json, readBody, cache }) {
   addRoute('GET', '/attention', (req, res, url) => __attentionHandler(req, res, url, async (req) => { const h = await __selfGet(req, '/api/plugins/builderio/health'); return (h && h.issues || []).map((i) => ({ level: i.level, text: i.message })); }, json));
 
   addPrefixRoute(async (req, res, url, subpath) => {
@@ -477,6 +477,40 @@ module.exports = function ({ addRoute, addPrefixRoute, json, readBody }) {
     requestSpace = (url.searchParams.get('space') || url.searchParams.get('repo')) ? { name: url.searchParams.get('space') || '', repo: url.searchParams.get('repo') || '' } : null;
 
     try {
+      // -- The @builder handle's search -----------------------------------------
+      // "@builder pricing" in the palette, or an Ask Cadence question about something,
+      // arrives here and is answered in the shape every handle shares. Builder has no
+      // cross-model search, so every model's first page of entries is read (cached for a
+      // little while) and matched on name, title, url and id.
+      if (subpath === '/search' && method === 'GET') {
+        const cfg = getCfg();
+        if (!isConfigured(cfg)) return json(res, { items: [] });
+        const q = String(url.searchParams.get('q') || '').trim().toLowerCase();
+        const limit = Math.max(1, Math.min(25, Number(url.searchParams.get('limit')) || 8));
+        if (!q) return json(res, { items: [] });
+        const key = 'builderio:search-index:' + cfg.publicKey;
+        const load = async () => {
+          const data = await gql(cfg.privateKey, '{ models { id name kind archived } }');
+          const models = (data.models || []).filter(m => !m.archived).slice(0, 15);
+          const pages = await Promise.all(models.map(async (m) => {
+            try {
+              const qp = new URLSearchParams({ apiKey: cfg.publicKey, limit: '100', includeUnpublished: 'true', fields: 'id,name,published,lastUpdated,data.url,data.title,data.slug' });
+              const r = await contentApi(m.name + '?' + qp, cfg.privateKey);
+              return (r.data.results || []).map(e => ({ model: m.name, kind: m.kind, id: e.id, name: e.name || e.id, published: e.published, url: typeof (e.data && e.data.url) === 'string' ? e.data.url : '', title: typeof (e.data && e.data.title) === 'string' ? e.data.title : '' }));
+            } catch (_) { return []; }
+          }));
+          return pages.flat();
+        };
+        const all = cache && typeof cache.get === 'function' ? await cache.get(key, load) : await load();
+        const items = all
+          .map(e => { const blob = (e.name + ' ' + e.title + ' ' + e.url + ' ' + e.id).toLowerCase(); const sc = blob === q ? 1 : e.name.toLowerCase().startsWith(q) ? 0.9 : blob.includes(q) ? 0.7 : 0; return { e, sc }; })
+          .filter(x => x.sc > 0)
+          .sort((a, b) => b.sc - a.sc)
+          .slice(0, limit)
+          .map(({ e, sc }) => ({ kind: e.kind || 'entry', id: e.id, label: e.name, detail: [cfg.name, e.model, e.published, e.url].filter(Boolean).join(' - '), open: { surface: 'builder', target: { model: e.model, id: e.id, space: cfg.name } }, score: sc }));
+        return json(res, { items });
+      }
+
       // -- Config (active space info) -------------------------------------------
       if (subpath === '/config' && method === 'GET') {
         const cfg = getCfg();
