@@ -1,7 +1,7 @@
-param(
+﻿param(
     [Parameter(Mandatory = $true)][string]$Model,
     [int]$Limit = 20,
-    [string]$ApiBase = "http://127.0.0.1:3800"
+    [string]$ApiBase = $(if ($env:CADENCE_API) { $env:CADENCE_API } else { "http://127.0.0.1:3800" })
 )
 
 $entries = Invoke-RestMethod "$ApiBase/api/plugins/builderio/content/$Model`?limit=$Limit"

@@ -1,6 +1,6 @@
 ## Builder.io Plugin -- AI Instructions
 
-You have access to a full-featured Builder.io management plugin via the Symphonee API. This is a complete CMS management system -- the user should never need to open Builder.io separately. You can create, edit, delete, publish, unpublish, audit, export, and generate content. You can also read the local codebase to discover components and work on the frontend.
+You have access to a full-featured Builder.io management plugin via the Cadence API. This is a complete CMS management system -- the user should never need to open Builder.io separately. You can create, edit, delete, publish, unpublish, audit, export, and generate content. You can also read the local codebase to discover components and work on the frontend.
 
 **All routes are at** `http://127.0.0.1:3800/api/plugins/builderio/`
 
@@ -265,3 +265,14 @@ Use this to understand the exact field types (`text`, `longText`, `richText`, `h
 ### Locales (for multi-language spaces)
 
 `/health` returns `locales[]` (e.g. `['us-en','qc-fr']`) parsed from `settings.customTargetingAttributes.locale.enum`. An empty array means the space has no locale targeting set up.
+
+
+## In Cadence 3.0
+
+Same routes, on the server that opened your shell: `$CADENCE_API/api/plugins/builderio/` (bash `$CADENCE_API`, PowerShell `$env:CADENCE_API`, fallback `http://127.0.0.1:3800`). Mutating routes (POST, PATCH, DELETE) go through the permission gate and need the `x-cadence-token` header; the scripts attach it.
+
+**Name the space per call.** Add `?space=<name>` (or `?repo=<local path>`) to any route and it works on that space instead of the stored active one, so two screens or two shells on two repositories never fight. Without it the stored active space applies (what the scripts do).
+
+New routes: `GET /entries?model=&q=&status=&limit=&offset=` (a paged entry list with a name and URL filter), `PATCH /spaces/<name>` (edit a space; a blank private key keeps the stored one), `DELETE /spaces/<name>`. `GET /spaces` never returns private keys; `privateKeySet` tells whether one exists.
+
+Rules for an AI: read health, then summaries, then entries; never publish, edit or delete unless the user asked for that exact entry; when you write a field, keep the editor's words and the site's voice; the user clicks Publish.

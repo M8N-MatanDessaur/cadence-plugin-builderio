@@ -1,6 +1,6 @@
-param(
+﻿param(
   [switch]$Fix,
-  [string]$ApiBase = "http://127.0.0.1:3800"
+  [string]$ApiBase = $(if ($env:CADENCE_API) { $env:CADENCE_API } else { "http://127.0.0.1:3800" })
 )
 
 # Lists every asset-usage that has a missing alt text. With -Fix and no prompt,

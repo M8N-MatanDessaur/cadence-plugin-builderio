@@ -1,14 +1,14 @@
-# Builder.io Plugin for Symphonee
+# Builder.io Plugin for Cadence
 
 Manage Builder.io models, schemas, and content entries with AI-powered actions.
 
 ## Installation
 
-1. Clone this repo into your Symphonee plugins folder:
+1. Clone this repo into your Cadence plugins folder:
    ```
-   git clone https://github.com/M8N-MatanDessaur/symphonee-plugin-builderio.git dashboard/plugins/builderio
+   git clone https://github.com/M8N-MatanDessaur/cadence-plugin-builderio.git dashboard/plugins/builderio
    ```
-2. Restart Symphonee
+2. Restart Cadence
 3. Go to Settings > Plugins > Builder.io and add your API keys
 
 ## Features

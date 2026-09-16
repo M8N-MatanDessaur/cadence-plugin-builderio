@@ -49,9 +49,24 @@ function saveAllCfg(data) {
   fs.writeFileSync(configPath, JSON.stringify(data, null, 2), 'utf8');
 }
 
+// The space a request asked for by name or by repository path; set at the top of the request
+// handler, read synchronously by getCfg() before the handler's first await.
+let requestSpace = null;
+const normPath = (v) => String(v || '').replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
+function spaceForRepo(all, repoPath) {
+  const want = normPath(repoPath);
+  if (!want) return null;
+  return all.spaces.find(sp => sp.repoPath && normPath(sp.repoPath) === want) || all.spaces.find(sp => sp.repoPath && (want.startsWith(normPath(sp.repoPath) + '/') || normPath(sp.repoPath).startsWith(want + '/'))) || null;
+}
 function getActiveSpace(all) {
   const a = all || readAllCfg();
   if (!a.spaces.length) return null;
+  if (requestSpace) {
+    const byName = a.spaces.find(sp => sp.name === requestSpace.name);
+    if (byName) return byName;
+    const byRepo = spaceForRepo(a, requestSpace.repo);
+    if (byRepo) return byRepo;
+  }
   const active = a.spaces.find(s => s.name === a.activeSpace);
   return active || a.spaces[0] || null;
 }
@@ -150,7 +165,6 @@ function getEnvFields(s) {
       return {
         id: e.id, label: e.label, url: e.url, localPort: e.localPort,
         publicKey: e.publicKey || '',
-        privateKey: e.privateKey || '',
         privateKeySet: !!e.privateKey,
       };
     }),
@@ -428,10 +442,39 @@ async function resolvePreviewUrls(cfg, modelName, entryId) {
 
 // -- Route Registration -------------------------------------------------------
 
-module.exports = function ({ addPrefixRoute, json, readBody }) {
+
+// ---- Attention: what the Plugins home shows on this app's tile. Reads the plugin's own
+// routes over loopback (they carry their caches), never writes, answers within a minute.
+const __attention = { value: null, until: 0 };
+function __selfGet(req, path, timeoutMs) {
+  return new Promise((resolve) => {
+    const host = req.headers.host || `127.0.0.1:${process.env.CADENCE_PORT || 3801}`;
+    const lib = require('http');
+    const r = lib.get({ host: host.split(':')[0], port: Number(host.split(':')[1] || 80), path, headers: { 'x-cadence-internal': '1' } }, (resp) => { let d = ''; resp.on('data', (c) => { d += c; }); resp.on('end', () => { try { resolve(resp.statusCode < 400 ? JSON.parse(d) : null); } catch (_) { resolve(null); } }); });
+    r.on('error', () => resolve(null));
+    r.setTimeout(timeoutMs || 45000, () => { r.destroy(); resolve(null); });
+  });
+}
+function __attentionOut(items) {
+  const rank = { error: 3, warn: 2, warning: 2, info: 1 };
+  const list = (items || []).filter((i) => i && i.text).map((i) => ({ level: i.level === 'warning' ? 'warn' : (i.level || 'info'), text: String(i.text) }));
+  const level = list.reduce((top, i) => (rank[i.level] > rank[top] ? i.level : top), list.length ? 'info' : 'ok');
+  return { count: list.length, level, items: list, readAt: new Date().toISOString() };
+}
+async function __attentionHandler(req, res, url, compute, json) {
+  if (__attention.value && __attention.until > Date.now() && url.searchParams.get('refresh') !== '1') return json(res, __attention.value);
+  let out;
+  try { out = __attentionOut(await compute(req)); } catch (e) { out = { count: 0, level: 'ok', items: [], error: e.message, readAt: new Date().toISOString() }; }
+  __attention.value = out; __attention.until = Date.now() + 60000;
+  return json(res, out);
+}
+
+module.exports = function ({ addRoute, addPrefixRoute, json, readBody }) {
+  addRoute('GET', '/attention', (req, res, url) => __attentionHandler(req, res, url, async (req) => { const h = await __selfGet(req, '/api/plugins/builderio/health'); return (h && h.issues || []).map((i) => ({ level: i.level, text: i.message })); }, json));
 
   addPrefixRoute(async (req, res, url, subpath) => {
     const method = req.method;
+    requestSpace = (url.searchParams.get('space') || url.searchParams.get('repo')) ? { name: url.searchParams.get('space') || '', repo: url.searchParams.get('repo') || '' } : null;
 
     try {
       // -- Config (active space info) -------------------------------------------
@@ -515,6 +558,68 @@ module.exports = function ({ addPrefixRoute, json, readBody }) {
         if (!all.activeSpace) all.activeSpace = name;
         saveAllCfg(all);
         return json(res, { ok: true });
+      }
+
+      const spaceMatch = subpath.match(/^\/spaces\/([^/]+)$/);
+      if (spaceMatch && spaceMatch[1] !== 'active' && (method === 'PATCH' || method === 'DELETE')) {
+        const all = readAllCfg();
+        const name = decodeURIComponent(spaceMatch[1]);
+        const idx = all.spaces.findIndex(sp => sp.name === name);
+        if (idx === -1) return json(res, { error: 'Space not found.' }, 404);
+        if (method === 'DELETE') {
+          all.spaces.splice(idx, 1);
+          if (all.activeSpace === name) all.activeSpace = all.spaces[0] ? all.spaces[0].name : '';
+          saveAllCfg(all);
+          if (global.__bioHealthCache) global.__bioHealthCache.clear();
+          return json(res, { ok: true });
+        }
+        const body = await readBody(req);
+        const cur = all.spaces[idx];
+        if (body.name && String(body.name).trim() !== cur.name) {
+          const next = String(body.name).trim();
+          if (all.spaces.find(sp => sp.name === next)) return json(res, { error: 'A space with that name already exists.' }, 409);
+          if (all.activeSpace === cur.name) all.activeSpace = next;
+          cur.name = next;
+        }
+        if (body.repoPath !== undefined) cur.repoPath = String(body.repoPath || '').trim().replace(/\/+$/, '');
+        if (body.dashboardUrl !== undefined) cur.dashboardUrl = String(body.dashboardUrl || '').trim().replace(/\/+$/, '');
+        if (Array.isArray(body.environments)) {
+          const prev = normalizeEnvironments(cur);
+          const envs = sanitizeEnvironments(body.environments) || [];
+          // A blank private key on an existing environment keeps the stored one.
+          for (const e of envs) { if (!e.privateKey) { const old = prev.find(x => x.id === e.id); if (old) e.privateKey = old.privateKey; } }
+          if (envs.length) { cur.environments = envs; if (!envs.find(e => e.id === cur.activeEnv)) cur.activeEnv = envs[0].id; }
+        }
+        if (body.activeEnv && normalizeEnvironments(cur).find(e => e.id === body.activeEnv)) cur.activeEnv = body.activeEnv;
+        saveAllCfg(all);
+        if (global.__bioHealthCache) global.__bioHealthCache.clear();
+        return json(res, { ok: true, space: Object.assign({ name: cur.name, repoPath: cur.repoPath || '', dashboardUrl: cur.dashboardUrl || '' }, getEnvFields(cur)) });
+      }
+
+      // GET /entries?model=&q=&status=&limit=&offset=  -- a paged list with a name filter
+      if (subpath === '/entries' && method === 'GET') {
+        const cfg = getCfg();
+        if (!isConfigured(cfg)) return json(res, { error: 'Not configured' }, 401);
+        const modelName = url.searchParams.get('model');
+        if (!modelName) return json(res, { error: 'model required' }, 400);
+        const q = (url.searchParams.get('q') || '').trim().toLowerCase();
+        const status = url.searchParams.get('status') || '';
+        const limit = Math.min(parseInt(url.searchParams.get('limit') || '50', 10) || 50, 200);
+        const offset = Math.max(parseInt(url.searchParams.get('offset') || '0', 10) || 0, 0);
+        const all = [];
+        let off = 0;
+        while (all.length < 1000) {
+          const qp = new URLSearchParams({ apiKey: cfg.publicKey, limit: '100', offset: String(off), includeUnpublished: 'true', fields: 'id,name,published,lastUpdated,createdDate,data.url,data.title,data.slug,meta.lastPreviewUrl' });
+          const r = await contentApi(`${modelName}?${qp}`, cfg.privateKey);
+          const batch = r.data.results || [];
+          all.push(...batch);
+          if (batch.length < 100) break;
+          off += 100;
+        }
+        const rows = all.filter(e => (!status || (status === 'published' ? e.published === 'published' : e.published !== 'published')) && (!q || `${e.name || ''} ${(e.data && (e.data.url || e.data.title || e.data.slug)) || ''} ${e.id}`.toLowerCase().includes(q)))
+          .map(e => { const str = (v) => (typeof v === 'string' ? v : v && typeof v === 'object' && v['@type'] ? (Object.entries(v).find(([k, x]) => k !== '@type' && typeof x === 'string') || [])[1] || '' : ''); return { id: e.id, name: e.name || e.id, published: e.published, lastUpdated: e.lastUpdated || e.createdDate || 0, url: str(e.data && e.data.url), title: str(e.data && e.data.title) }; })
+          .sort((a, b) => b.lastUpdated - a.lastUpdated);
+        return json(res, { model: modelName, total: rows.length, published: all.filter(e => e.published === 'published').length, drafts: all.filter(e => e.published !== 'published').length, entries: rows.slice(offset, offset + limit), offset, limit });
       }
 
       if (subpath === '/spaces/active' && method === 'POST') {
@@ -621,10 +726,16 @@ module.exports = function ({ addPrefixRoute, json, readBody }) {
         const cfg = getCfg();
         if (!cfg.privateKey) return json(res, { error: 'Not configured' }, 401);
         const body = await readBody(req);
+        // Builder requires model names in kebab-case; normalize so callers can pass
+        // PascalCase or spaced names (e.g. "AnalyzingScreen" -> "analyzing-screen").
+        const name = String(body.name || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+        if (!name) return json(res, { error: 'Model name is required' }, 400);
+        // Builder Admin GraphQL creates models via addModel(body: JSONObject!); there is
+        // no createModel/CreateModelInput in the schema.
         const data = await gql(cfg.privateKey, `
-          mutation($body: CreateModelInput!) { createModel(body: $body) { id name } }
-        `, { body: { name: body.name, kind: body.kind || 'data', fields: body.fields || [] } });
-        return json(res, data.createModel);
+          mutation($body: JSONObject!) { addModel(body: $body) { id name kind } }
+        `, { body: { name, kind: body.kind || 'data', fields: body.fields || [] } });
+        return json(res, data.addModel);
       }
 
       const modelMatch = subpath.match(/^\/models\/([^/]+)$/);

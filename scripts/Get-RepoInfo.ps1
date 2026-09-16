@@ -1,4 +1,4 @@
-param([string]$ApiBase = "http://127.0.0.1:3800")
+﻿param([string]$ApiBase = $(if ($env:CADENCE_API) { $env:CADENCE_API } else { "http://127.0.0.1:3800" }))
 
 $info = Invoke-RestMethod "$ApiBase/api/plugins/builderio/repo/info"
 if ($info.error) { Write-Host "`n  Error: $($info.error)" -ForegroundColor Red; return }

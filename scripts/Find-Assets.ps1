@@ -1,8 +1,8 @@
-param(
+﻿param(
   [string]$Query = "",
   [int]$Limit = 60,
   [int]$Offset = 0,
-  [string]$ApiBase = "http://127.0.0.1:3800"
+  [string]$ApiBase = $(if ($env:CADENCE_API) { $env:CADENCE_API } else { "http://127.0.0.1:3800" })
 )
 
 $qs = "limit=$Limit&offset=$Offset"

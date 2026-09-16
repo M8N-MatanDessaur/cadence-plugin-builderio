@@ -1,7 +1,7 @@
-param(
+﻿param(
   [Parameter(Mandatory=$true)][string]$Model,
   [Parameter(Mandatory=$true)][string]$EntryId,
-  [string]$ApiBase = "http://127.0.0.1:3800"
+  [string]$ApiBase = $(if ($env:CADENCE_API) { $env:CADENCE_API } else { "http://127.0.0.1:3800" })
 )
 
 $qs = "model=$([uri]::EscapeDataString($Model))&entryId=$([uri]::EscapeDataString($EntryId))"

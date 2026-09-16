@@ -1,13 +1,26 @@
 {
   "id": "builderio",
   "name": "Builder.io",
-  "version": "2.8.1",
+  "version": "2.8.3",
   "description": "Manage Builder.io models, schemas, and content entries with AI-powered actions",
   "icon": "blocks",
   "tint": "160, 120, 210",
   "instructions": "instructions.md",
-  "aiKeywords": ["builder.io", "builderio", "builder model", "builder content", "builder space", "landing page", "page builder", "visual editor", "cms content", "content model"],
-  "activationConditions": { "always": true },
+  "aiKeywords": [
+    "builder.io",
+    "builderio",
+    "builder model",
+    "builder content",
+    "builder space",
+    "landing page",
+    "page builder",
+    "visual editor",
+    "cms content",
+    "content model"
+  ],
+  "activationConditions": {
+    "always": true
+  },
   "settings": [],
   "contributions": {
     "settingsHtml": "settings.html",
@@ -19,6 +32,407 @@
         "html": "tab.html"
       }
     ],
-    "routes": "routes.js"
-  }
+    "routes": "routes.js",
+    "surfaces": [
+      {
+        "id": "builder",
+        "title": "Builder.io",
+        "icon": "blocks",
+        "mount": "rail",
+        "entry": "ui/builder.js",
+        "sidebar": true,
+        "aside": true
+      }
+    ],
+    "scripts": [
+      {
+        "file": "Audit-AltText.ps1",
+        "label": "Audit Alt Text",
+        "description": "Audit Alt Text on the active Builder space.",
+        "args": [
+          {
+            "name": "Fix",
+            "label": "Fix"
+          }
+        ]
+      },
+      {
+        "file": "Export-Entries.ps1",
+        "label": "Export Entries",
+        "description": "Export Entries on the active Builder space.",
+        "args": [
+          {
+            "name": "Model",
+            "label": "Model",
+            "required": true
+          },
+          {
+            "name": "OutFile",
+            "label": "OutFile"
+          }
+        ]
+      },
+      {
+        "file": "Find-Assets.ps1",
+        "label": "Find Assets",
+        "description": "Find Assets on the active Builder space.",
+        "args": [
+          {
+            "name": "Query",
+            "label": "Query",
+            "default": ""
+          },
+          {
+            "name": "Limit",
+            "label": "Limit",
+            "default": "60"
+          },
+          {
+            "name": "Offset",
+            "label": "Offset",
+            "default": "0"
+          }
+        ]
+      },
+      {
+        "file": "Get-AssetUsage.ps1",
+        "label": "Get Asset Usage",
+        "description": "Get Asset Usage on the active Builder space.",
+        "args": [
+          {
+            "name": "Url",
+            "label": "Url",
+            "required": true
+          }
+        ]
+      },
+      {
+        "file": "Get-Assets.ps1",
+        "label": "Get Assets",
+        "description": "Get Assets on the active Builder space.",
+        "args": [
+          {
+            "name": "Query",
+            "label": "Query",
+            "default": ""
+          },
+          {
+            "name": "Max",
+            "label": "Max",
+            "default": "5000"
+          }
+        ]
+      },
+      {
+        "file": "Get-Components.ps1",
+        "label": "Get Components",
+        "description": "Get Components on the active Builder space.",
+        "args": []
+      },
+      {
+        "file": "Get-ContentSummary.ps1",
+        "label": "Get Content Summary",
+        "description": "Get Content Summary on the active Builder space.",
+        "args": [
+          {
+            "name": "Model",
+            "label": "Model",
+            "default": ""
+          }
+        ]
+      },
+      {
+        "file": "Get-Entries.ps1",
+        "label": "Get Entries",
+        "description": "Get Entries on the active Builder space.",
+        "args": [
+          {
+            "name": "Model",
+            "label": "Model",
+            "required": true
+          },
+          {
+            "name": "Limit",
+            "label": "Limit",
+            "default": "20"
+          }
+        ]
+      },
+      {
+        "file": "Get-Health.ps1",
+        "label": "Get Health",
+        "description": "Get Health on the active Builder space.",
+        "args": []
+      },
+      {
+        "file": "Get-Insights.ps1",
+        "label": "Get Insights",
+        "description": "Get Insights on the active Builder space.",
+        "args": [
+          {
+            "name": "Issue",
+            "label": "Issue",
+            "default": ""
+          },
+          {
+            "name": "Model",
+            "label": "Model",
+            "default": ""
+          }
+        ]
+      },
+      {
+        "file": "Get-ModelSchema.ps1",
+        "label": "Get Model Schema",
+        "description": "Get Model Schema on the active Builder space.",
+        "args": [
+          {
+            "name": "Name",
+            "label": "Name",
+            "required": true
+          },
+          {
+            "name": "Json",
+            "label": "Json"
+          }
+        ]
+      },
+      {
+        "file": "Get-Models.ps1",
+        "label": "Get Models",
+        "description": "Get Models on the active Builder space.",
+        "args": []
+      },
+      {
+        "file": "Get-PreviewUrl.ps1",
+        "label": "Get Preview Url",
+        "description": "Get Preview Url on the active Builder space.",
+        "args": [
+          {
+            "name": "Model",
+            "label": "Model",
+            "required": true
+          },
+          {
+            "name": "EntryId",
+            "label": "EntryId",
+            "required": true
+          }
+        ]
+      },
+      {
+        "file": "Get-RepoInfo.ps1",
+        "label": "Get Repo Info",
+        "description": "Get Repo Info on the active Builder space.",
+        "args": []
+      },
+      {
+        "file": "Get-SpaceSummary.ps1",
+        "label": "Get Space Summary",
+        "description": "Get Space Summary on the active Builder space.",
+        "args": []
+      },
+      {
+        "file": "New-Entry.ps1",
+        "label": "New Entry",
+        "description": "New Entry on the active Builder space.",
+        "mutates": true,
+        "args": [
+          {
+            "name": "Model",
+            "label": "Model",
+            "required": true
+          },
+          {
+            "name": "JsonFile",
+            "label": "JsonFile",
+            "required": true
+          }
+        ]
+      },
+      {
+        "file": "New-Model.ps1",
+        "label": "New Model",
+        "description": "New Model on the active Builder space.",
+        "mutates": true,
+        "args": [
+          {
+            "name": "Name",
+            "label": "Name",
+            "required": true
+          },
+          {
+            "name": "Kind",
+            "label": "Kind",
+            "default": "data"
+          },
+          {
+            "name": "JsonFile",
+            "label": "JsonFile"
+          }
+        ]
+      },
+      {
+        "file": "Publish-Entry.ps1",
+        "label": "Publish Entry",
+        "description": "Publish Entry on the active Builder space.",
+        "mutates": true,
+        "args": [
+          {
+            "name": "Model",
+            "label": "Model",
+            "required": true
+          },
+          {
+            "name": "Id",
+            "label": "Id",
+            "required": true
+          }
+        ]
+      },
+      {
+        "file": "Remove-Asset.ps1",
+        "label": "Remove Asset",
+        "description": "Remove Asset on the active Builder space.",
+        "mutates": true,
+        "args": [
+          {
+            "name": "Id",
+            "label": "Id",
+            "required": true
+          },
+          {
+            "name": "Force",
+            "label": "Force"
+          }
+        ]
+      },
+      {
+        "file": "Remove-Entry.ps1",
+        "label": "Remove Entry",
+        "description": "Remove Entry on the active Builder space.",
+        "mutates": true,
+        "args": [
+          {
+            "name": "Model",
+            "label": "Model",
+            "required": true
+          },
+          {
+            "name": "Id",
+            "label": "Id",
+            "required": true
+          },
+          {
+            "name": "Force",
+            "label": "Force"
+          }
+        ]
+      },
+      {
+        "file": "Set-EntryAlt.ps1",
+        "label": "Set Entry Alt",
+        "description": "Set Entry Alt on the active Builder space.",
+        "mutates": true,
+        "args": [
+          {
+            "name": "Url",
+            "label": "Url",
+            "required": true
+          },
+          {
+            "name": "Model",
+            "label": "Model",
+            "required": true
+          },
+          {
+            "name": "EntryId",
+            "label": "EntryId",
+            "required": true
+          },
+          {
+            "name": "AltText",
+            "label": "AltText",
+            "required": true
+          }
+        ]
+      },
+      {
+        "file": "Switch-Space.ps1",
+        "label": "Switch Space",
+        "description": "Switch Space on the active Builder space.",
+        "mutates": true,
+        "args": [
+          {
+            "name": "Name",
+            "label": "Name",
+            "required": true
+          }
+        ]
+      },
+      {
+        "file": "Unpublish-Entry.ps1",
+        "label": "Unpublish Entry",
+        "description": "Unpublish Entry on the active Builder space.",
+        "mutates": true,
+        "args": [
+          {
+            "name": "Model",
+            "label": "Model",
+            "required": true
+          },
+          {
+            "name": "Id",
+            "label": "Id",
+            "required": true
+          }
+        ]
+      },
+      {
+        "file": "Update-Asset.ps1",
+        "label": "Update Asset",
+        "description": "Update Asset on the active Builder space.",
+        "mutates": true,
+        "args": [
+          {
+            "name": "Id",
+            "label": "Id",
+            "required": true
+          },
+          {
+            "name": "AltText",
+            "label": "AltText"
+          },
+          {
+            "name": "Name",
+            "label": "Name"
+          }
+        ]
+      },
+      {
+        "file": "Update-Entry.ps1",
+        "label": "Update Entry",
+        "description": "Update Entry on the active Builder space.",
+        "mutates": true,
+        "args": [
+          {
+            "name": "Model",
+            "label": "Model",
+            "required": true
+          },
+          {
+            "name": "Id",
+            "label": "Id",
+            "required": true
+          },
+          {
+            "name": "JsonFile",
+            "label": "JsonFile",
+            "required": true
+          }
+        ]
+      }
+    ]
+  },
+  "sdkVersion": 3
 }
