@@ -15,13 +15,19 @@ const CONTENT_API = 'https://cdn.builder.io/api/v3/content';
 const WRITE_API = 'https://builder.io/api/v1/write';
 
 const configPath = path.join(__dirname, 'config.json');
+
+// Cadence reads and writes this file for the plugin (ctx.pluginConfig): sealed at rest, so the
+// secrets in it are not in the clear on disk. On a Cadence without it, the file as before.
+let cfgIO = null;
+function readConfigFile() { return cfgIO ? cfgIO.read() : JSON.parse(fs.readFileSync(configPath, 'utf8')); }
+function writeConfigFile(data) { if (cfgIO) cfgIO.write(data); else fs.writeFileSync(configPath, JSON.stringify(data, null, 2), 'utf8'); }
 const IGNORE_DIRS = new Set(['node_modules', 'dist', '.next', 'out', 'build', 'static', '.cache', '.vercel', '.netlify', '.turbo', '__pycache__', 'coverage']);
 
 // -- Config helpers (multi-space) ---------------------------------------------
 
 function readAllCfg() {
   try {
-    const raw = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    const raw = readConfigFile();
     // Migrate legacy flat config (privateKey at root) to multi-space format
     if (raw.privateKey !== undefined && !raw.spaces) {
       const legacy = {
@@ -46,7 +52,7 @@ function readAllCfg() {
 }
 
 function saveAllCfg(data) {
-  fs.writeFileSync(configPath, JSON.stringify(data, null, 2), 'utf8');
+  writeConfigFile(data);
 }
 
 // The space a request asked for by name or by repository path; set at the top of the request
@@ -469,7 +475,8 @@ async function __attentionHandler(req, res, url, compute, json) {
   return json(res, out);
 }
 
-module.exports = function ({ addRoute, addPrefixRoute, json, readBody, cache }) {
+module.exports = function ({ addRoute, addPrefixRoute, json, readBody, cache, pluginConfig }) {
+  cfgIO = pluginConfig || null;
   addRoute('GET', '/attention', (req, res, url) => __attentionHandler(req, res, url, async (req) => { const h = await __selfGet(req, '/api/plugins/builderio/health'); return (h && h.issues || []).map((i) => ({ level: i.level, text: i.message })); }, json));
 
   addPrefixRoute(async (req, res, url, subpath) => {
